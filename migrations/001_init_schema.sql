@@ -2,7 +2,7 @@
 CREATE DATABASE IF NOT EXISTS app_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE app_db;
 
--- users
+-- USERS TABLE
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255),
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- addresses (user saved addresses)
+-- ADDRESSES
 CREATE TABLE IF NOT EXISTS addresses (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
@@ -24,11 +24,10 @@ CREATE TABLE IF NOT EXISTS addresses (
   lat DECIMAL(10,7) NULL,
   lng DECIMAL(10,7) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX (user_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- restaurants
+-- RESTAURANTS TABLE (UPDATED)
 CREATE TABLE IF NOT EXISTS restaurants (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   owner_user_id BIGINT NOT NULL,
@@ -36,38 +35,46 @@ CREATE TABLE IF NOT EXISTS restaurants (
   address TEXT,
   is_active TINYINT(1) DEFAULT 0,
   status ENUM('pending','approved','declined') DEFAULT 'pending',
+
+  -- NEW FIELDS
+  delivery_price_per_km INT DEFAULT 10,     -- delivery charge per kilometer
+  is_pure_veg TINYINT(1) DEFAULT 0,         -- 0 = non-veg, 1 = pure veg
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- restaurant_profiles (additional docs)
+-- RESTAURANT PROFILES
 CREATE TABLE IF NOT EXISTS restaurant_profiles (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   restaurant_id BIGINT NOT NULL,
   fssai_number VARCHAR(100),
-  images TEXT,        -- comma separated or JSON string of filenames/urls
+  images TEXT,
   license_docs TEXT,
   verified_by BIGINT NULL,
   verified_at TIMESTAMP NULL,
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
 
--- menu_items
+-- MENU ITEMS (UPDATED)
 CREATE TABLE IF NOT EXISTS menu_items (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   restaurant_id BIGINT NOT NULL,
   name VARCHAR(255),
   description TEXT,
-  price_cents BIGINT NOT NULL,        -- store money in paise/cents
+  price_cents BIGINT NOT NULL,
   discount_percent INT DEFAULT 0,
   sale_price_cents BIGINT DEFAULT NULL,
   is_available TINYINT(1) DEFAULT 1,
+
+  -- NEW FIELD (veg / non-veg)
+  is_veg TINYINT(1) DEFAULT 1,              -- 1 = veg, 0 = non-veg
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX (restaurant_id),
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
 
--- orders
+-- ORDERS
 CREATE TABLE IF NOT EXISTS orders (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   order_number VARCHAR(80) UNIQUE,
@@ -78,25 +85,23 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_status ENUM('pending','paid','failed') DEFAULT 'pending',
   order_status ENUM('placed','accepted','preparing','ready','completed','cancelled') DEFAULT 'placed',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX (restaurant_id),
-  INDEX (customer_id),
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id),
   FOREIGN KEY (customer_id) REFERENCES users(id),
   FOREIGN KEY (address_id) REFERENCES addresses(id)
 );
 
--- order_items
+-- ORDER ITEMS
 CREATE TABLE IF NOT EXISTS order_items (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   order_id BIGINT NOT NULL,
   menu_item_id BIGINT NOT NULL,
   qty INT DEFAULT 1,
-  price_cents BIGINT NOT NULL,  -- price per item at order time (after discount)
+  price_cents BIGINT NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
 );
 
--- wallets
+-- WALLETS
 CREATE TABLE IF NOT EXISTS wallets (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   restaurant_id BIGINT UNIQUE NOT NULL,
@@ -106,7 +111,7 @@ CREATE TABLE IF NOT EXISTS wallets (
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
 
--- wallet_transactions (ledger)
+-- WALLET TRANSACTIONS
 CREATE TABLE IF NOT EXISTS wallet_transactions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   wallet_id BIGINT NOT NULL,
@@ -120,7 +125,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
   FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
--- order_fees (commission / restaurant share)
+-- ORDER FEES
 CREATE TABLE IF NOT EXISTS order_fees (
   order_id BIGINT PRIMARY KEY,
   commission_cents BIGINT NOT NULL,
